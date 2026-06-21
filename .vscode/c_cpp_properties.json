@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "~/zephyrproject/zephyr/include/**",
+                "~/zephyrproject/modules/lib/**",
+                "~/zephyrproject/modules/lib/cmsis-dsp/Include",
+                "~/zephyrproject/modules/hal/stm32/stm32cube/stm32g4xx/drivers/src/",
+                "~/zephyrproject/modules/hal/stm32/stm32cube/stm32g4xx/drivers/include",
+                "~/zephyrproject/modules/lib/cmsis-dsp/Include",
+                "~/zephyrproject/modules/hal/cmsis/CMSIS/Core/Include/",
+                "~/zephyrproject/modules/hal/stm32/stm32cube/stm32g4xx/drivers/include",
+                "~/zephyrproject/modules/hal/stm32/stm32cube/stm32g4xx/soc"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

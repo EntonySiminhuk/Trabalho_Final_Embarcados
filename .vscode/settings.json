@@ -1,0 +1,25 @@
+{
+    "files.associations": {
+        "__assert.h": "c",
+        "toolchain.h": "c",
+        "gpio.h": "c",
+        "device.h": "c",
+        "kernel.h": "c",
+        "kernel_includes.h": "c",
+        "*.tcc": "c",
+        "dsp.h": "c",
+        "print_format.h": "c",
+        "basicmath.h": "c",
+        "types.h": "c",
+        "arm_const_structs.h": "c",
+        "zbus.h": "c",
+        "stm32g4xx_hal_adc.h": "c",
+        "cstdint": "c",
+        "stm32g4xx_hal_conf.h": "c",
+        "stm32g4xx_hal_dac.h": "c",
+        "stm32g4xx_hal_def.h": "c",
+        "stm32g4xx.h": "c",
+        "stm32g474xx.h": "c",
+        "printk.h": "c"
+    }
+}

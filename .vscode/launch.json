@@ -1,0 +1,40 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+	    {
+		"name": "Launch",
+		"device": "STM32G474RE",
+		"cwd": "${workspaceFolder}/",
+		"executable": "build/zephyr/zephyr.elf",
+		"request": "launch",
+		"type": "cortex-debug",
+		"runToEntryPoint": "main",
+		"toolchainPrefix": "arm-zephyr-eabi",
+		"servertype": "openocd",
+		"interface": "swd",
+		"configFiles": [
+			"/usr/share/openocd/scripts/interface/stlink-v2-1.cfg",
+			"/usr/share/openocd/scripts/target/stm32g4x.cfg"
+		],
+		"preLaunchTask": "West Build",
+		"gdbPath": "${userHome}/zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
+	    },
+	    {
+		"name": "Attach",
+		"device": "STM32G474RE",
+		"cwd": "${workspaceFolder}/",
+		"executable": "build/zephyr/zephyr.elf",
+		"toolchainPrefix": "arm-zephyr-eabi",
+		"request": "attach",
+		"type": "cortex-debug",
+		"runToEntryPoint": "main",
+		"servertype": "openocd",
+		"interface": "swd",
+		"configFiles": [
+			"/usr/share/openocd/scripts/interface/stlink-v2-1.cfg",
+			"/usr/share/openocd/scripts/target/stm32g4x.cfg"
+		],
+		"gdbPath": "${userHome}/zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb"
+	    },
+	]
+}

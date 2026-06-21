@@ -1,0 +1,47 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "West Build",
+			"type": "shell",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"linux": {
+				"command": "${workspaceFolder}/build.sh"
+			},
+			"windows": {
+				
+			},
+			"osx": {
+				
+			},
+			"args": [
+
+			],
+			"problemMatcher": [
+				"$gcc"
+			]
+		},
+		{
+			"label": "West Flash",
+			"type": "shell",
+			"linux": {
+				"command": "${workspaceFolder}/flash.sh"
+			},
+			"windows": {
+				
+			},
+			"osx": {
+				
+			},
+			"args": [
+				"flash"
+			],
+			"problemMatcher": [
+				"$gcc"
+			]
+		}
+	]
+}
