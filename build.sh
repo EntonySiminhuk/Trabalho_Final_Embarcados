@@ -1,6 +1,9 @@
 #!/bin/bash
 
-cd ~/zephyrproject
-# source .venv/bin/activate
+echo "🚀 A ligar o ambiente Zephyr para compilação..."
 source ~/zephyr-venv/bin/activate
-west build -o=-j16 -p always ~/zephyr_workspace/zephyr_app -d ~/zephyr_workspace/zephyr_app/build
+source ~/zephyrproject/zephyr/zephyr-env.sh
+
+echo " A compilar o código..."
+# O comando abaixo compila o código da pasta atual apagando o cache antigo
+west build -p always -b nucleo_g474re

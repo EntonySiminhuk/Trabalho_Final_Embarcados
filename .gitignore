@@ -1,0 +1,14 @@
+# Ignorar pastas de compilação e cache do Zephyr
+build/
+.cache/
+.vscode/
+
+# Ignorar ambientes virtuais Python (caso crie dentro da pasta)
+.venv/
+zephyr-venv/
+
+# Ignorar binários
+*.bin
+*.hex
+*.elf
+*.map
