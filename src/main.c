@@ -9,6 +9,8 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/__assert.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/logging/log.h>
 
 #include <string.h>
 
@@ -80,6 +82,5 @@ K_THREAD_DEFINE(blink0_id, STACKSIZE, blink0, NULL, NULL, NULL,PRIORITY, 0, 0);
 
 int main(void)
 {
-
 	return 0;
 }

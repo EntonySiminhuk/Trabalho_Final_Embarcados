@@ -5,7 +5,7 @@
 		led1 = &led1;
 		//sw0 = &sw0;
 		sw1 = &sw1;
-		sensor0 = &sensor0;
+		sensor0 = &mpu6050;
 	};
 
 	leds {
@@ -30,12 +30,15 @@
 			zephyr,code = <INPUT_KEY_1>;
 		};
 	};
-
-	edge_sensor {
-		sensor0: sensor_0 {
-			gpios = <&gpioc 8 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
-		};
-	};
 };
 
-
+&i2c1 {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_STANDARD>; /* Tente 100000 se 400000 falhar */
+    
+    mpu6050: mpu6050@68 {
+        compatible = "invensense,mpu6050";
+        reg = <0x68>;
+        status = "okay";
+    };
+};
