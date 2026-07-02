@@ -12,7 +12,8 @@
 
 #include <string.h>
 
-#define ZEPHYR_USER_NODE DT_PATH(zephyr_user)
+/* Historico de anomalias vive no zbus.c; o botao apenas o reseta. */
+extern void anomaly_reset(void);
 
 /* size of stack area used by each thread */
 #define STACKSIZE 1024
@@ -20,9 +21,9 @@
 /* scheduling priority used by each thread */
 #define PRIORITY 7
 
-
 /*
- * Get button configuration from the devicetree sw0 alias. This is mandatory.
+ * Botoes: sw0 = user button da placa (PC13, gpioc),
+ *         sw1 = botao externo definido no overlay (PA10, gpioa).
  */
 #define SW0_NODE	DT_ALIAS(sw0)
 #define SW1_NODE	DT_ALIAS(sw1)
@@ -34,19 +35,26 @@ static const struct gpio_dt_spec button0 = GPIO_DT_SPEC_GET_OR(SW0_NODE, gpios, 
 static const struct gpio_dt_spec button1 = GPIO_DT_SPEC_GET_OR(SW1_NODE, gpios, {0});
 
 K_SEM_DEFINE(counter_sem, 0, 1);
+
 static void debounce_expired(struct k_work *work)
 {
-    ARG_UNUSED(work);
+	ARG_UNUSED(work);
 
-    int val0 = gpio_pin_get_dt(&button0);
-    int val1 = gpio_pin_get_dt(&button1);
-    if (val0) {
-        printk("SW0 pressed\n"); 
-    }
-    if (val1) {
-        printk("SW1 pressed\n"); 
-    }
-    //enum button_evt evt = val ? BUTTON_EVT_PRESSED : BUTTON_EVT_RELEASED;
+	int val0 = gpio_pin_get_dt(&button0);
+	int val1 = gpio_pin_get_dt(&button1);
+
+	if (val0) {
+		printk("SW0 pressed\n");
+	}
+	if (val1) {
+		printk("SW1 pressed\n");
+	}
+
+	/* Qualquer botao reseta o historico de anomalias (requisito do botao). */
+	if (val0 || val1) {
+		anomaly_reset();
+	}
+
 	k_sem_give(&counter_sem);
 }
 
@@ -54,65 +62,64 @@ static K_WORK_DELAYABLE_DEFINE(debounce_work, debounce_expired);
 
 void button_cb(const struct device *gpiodev, struct gpio_callback *cb, uint32_t pin)
 {
-    k_work_schedule(&debounce_work, K_MSEC(50));
+	ARG_UNUSED(gpiodev);
+	ARG_UNUSED(cb);
+	ARG_UNUSED(pin);
+
+	k_work_schedule(&debounce_work, K_MSEC(50));
 }
 
-static struct gpio_callback button_cb_data;
-int keyboard_thread(void)
+/*
+ * button0 e button1 estao em portas GPIO diferentes (gpioc e gpioa), entao
+ * cada um precisa da SUA propria struct gpio_callback. Reusar a mesma struct
+ * em duas portas corrompe a lista de callbacks.
+ */
+static struct gpio_callback button0_cb_data;
+static struct gpio_callback button1_cb_data;
+
+static int configure_button(const struct gpio_dt_spec *btn, struct gpio_callback *cb)
 {
 	int ret;
 
-	if (!gpio_is_ready_dt(&button0)) {
-		printk("Error: button device %s is not ready\n",
-		       button0.port->name);
-		return 0;
-	}
-    
-    if (!gpio_is_ready_dt(&button1)) {
-		printk("Error: button device %s is not ready\n",
-		       button1.port->name);
-		return 0;
+	if (!gpio_is_ready_dt(btn)) {
+		printk("Error: button device %s is not ready\n", btn->port->name);
+		return -ENODEV;
 	}
 
-	ret = gpio_pin_configure_dt(&button0, GPIO_INPUT);
+	ret = gpio_pin_configure_dt(btn, GPIO_INPUT);
 	if (ret != 0) {
 		printk("Error %d: failed to configure %s pin %d\n",
-		       ret, button0.port->name, button0.pin);
-		return 0;
+		       ret, btn->port->name, btn->pin);
+		return ret;
 	}
 
-	ret = gpio_pin_configure_dt(&button1, GPIO_INPUT);
-	if (ret != 0) {
-		printk("Error %d: failed to configure %s pin %d\n",
-		       ret, button1.port->name, button1.pin);
-		return 0;
-	}
+	gpio_init_callback(cb, button_cb, BIT(btn->pin));
+	gpio_add_callback(btn->port, cb);
 
-	/* Callback uses pin_mask, so need bit shifting */
-	gpio_init_callback(&button_cb_data, button_cb, BIT(button0.pin) | BIT(button1.pin));
-	gpio_add_callback(button0.port, &button_cb_data);
-    gpio_add_callback(button1.port, &button_cb_data);
-
-	/* Setup input pin for interrupt */
-	ret = gpio_pin_interrupt_configure_dt(&button0, GPIO_INT_EDGE_FALLING);
+	ret = gpio_pin_interrupt_configure_dt(btn, GPIO_INT_EDGE_FALLING);
 	if (ret != 0) {
 		printk("Error %d: failed to configure interrupt on %s pin %d\n",
-			ret, button0.port->name, button0.pin);
-		return 0;
+		       ret, btn->port->name, btn->pin);
+		return ret;
 	}
 
-	ret = gpio_pin_interrupt_configure_dt(&button1, GPIO_INT_EDGE_FALLING);
-	if (ret != 0) {
-		printk("Error %d: failed to configure interrupt on %s pin %d\n",
-			ret, button1.port->name, button1.pin);
+	return 0;
+}
+
+int keyboard_thread(void)
+{
+	if (configure_button(&button0, &button0_cb_data) != 0) {
+		return 0;
+	}
+	if (configure_button(&button1, &button1_cb_data) != 0) {
 		return 0;
 	}
 
 	printk("Waiting button being pressed\n");
-	while(1){
+	while (1) {
 		k_sem_take(&counter_sem, K_FOREVER);
 		printk("Button pressed at %" PRIu32 "\n", k_cycle_get_32());
 	}
 }
 
-K_THREAD_DEFINE(keyboard_id, STACKSIZE, keyboard_thread, NULL, NULL, NULL,PRIORITY, 0, 0);
+K_THREAD_DEFINE(keyboard_id, STACKSIZE, keyboard_thread, NULL, NULL, NULL, PRIORITY, 0, 0);

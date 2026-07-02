@@ -42,3 +42,32 @@
         status = "okay";
     };
 };
+
+/*
+ * O SPI1 vem ativo por padrao neste board e ROUBA dois pinos importantes:
+ *   - PB6 (usado como CS do SPI1) -> conflitava com a USART1_TX
+ *   - PA5 (SCK do SPI1)           -> e o mesmo pino do LED verde (led0)
+ * Como o projeto nao usa SPI1, desativamos para liberar esses pinos.
+ */
+&spi1 {
+    status = "disabled";
+};
+
+/*
+ * USART1 = canal de dados para a PONTE do ESP32 (Wi-Fi <-> UART).
+ *
+ * Usamos PC4/PC5, que sao exatamente os pinos "TX/D1" e "RX/D0" do header
+ * Arduino (rotulados na placa, lado a lado) e a segunda opcao da USART1.
+ * Evita o PB6 (CS do SPI1), o PA2/PA3 (console lpuart1) e o PA10 (botao).
+ *
+ * Ligacao fisica (crossover, ambos 3V3):
+ *   STM32 D1 = PC4 (USART1_TX) --> ESP32 GPIO16 (RX2)
+ *   STM32 D0 = PC5 (USART1_RX) <-- ESP32 GPIO17 (TX2)
+ *   GND <-> GND comum entre as placas.
+ */
+&usart1 {
+    status = "okay";
+    current-speed = <9600>;   /* baud baixo: robusto contra ruido em protoboard */
+    pinctrl-0 = <&usart1_tx_pc4 &usart1_rx_pc5>;
+    pinctrl-names = "default";
+};

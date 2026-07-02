@@ -9,12 +9,9 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/__assert.h>
-#include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
 
-#include <string.h>
-
-#define ZEPHYR_USER_NODE DT_PATH(zephyr_user)
+LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 /* size of stack area used by each thread */
 #define STACKSIZE 1024
@@ -29,11 +26,9 @@
 #error "Unsupported board: led0 devicetree alias is not defined"
 #endif
 
-
 #if !DT_NODE_HAS_STATUS(LED1_NODE, okay)
 #error "Unsupported board: led1 devicetree alias is not defined"
 #endif
-
 
 struct led {
 	struct gpio_dt_spec spec;
@@ -45,12 +40,16 @@ static const struct led led0 = {
 	.num = 0,
 };
 
-
+/* --------------------------------------------------------------------- */
+/* Thread do LED (Requisito 3): pisca usando o timer do kernel.          */
+/* --------------------------------------------------------------------- */
 void blink(const struct led *led, uint32_t sleep_ms, uint32_t id)
 {
 	const struct gpio_dt_spec *spec = &led->spec;
 	int ret;
 	int cnt = 0;
+
+	ARG_UNUSED(id);
 
 	if (!device_is_ready(spec->port)) {
 		printk("Error: %s device is not ready\n", spec->port->name);
@@ -60,14 +59,13 @@ void blink(const struct led *led, uint32_t sleep_ms, uint32_t id)
 	ret = gpio_pin_configure_dt(spec, GPIO_OUTPUT);
 	if (ret != 0) {
 		printk("Error %d: failed to configure pin %d (LED '%d')\n",
-			ret, spec->pin, led->num);
+		       ret, spec->pin, led->num);
 		return;
 	}
 
 	while (1) {
 		gpio_pin_set(spec->port, spec->pin, cnt % 2);
 		cnt++;
-
 		k_msleep(sleep_ms);
 	}
 }
@@ -76,11 +74,16 @@ void blink0(void)
 {
 	blink(&led0, 200, 0);
 }
-
-
-K_THREAD_DEFINE(blink0_id, STACKSIZE, blink0, NULL, NULL, NULL,PRIORITY, 0, 0);
+K_THREAD_DEFINE(blink0_id, STACKSIZE, blink0, NULL, NULL, NULL, PRIORITY, 0, 0);
 
 int main(void)
 {
+	/*
+	 * A conectividade Wi-Fi fica a cargo do ESP32 (ponte UDP<->UART).
+	 * O STM32 apenas expoe o shell:
+	 *   - localmente pela console (lpuart1 / VCP do ST-Link);
+	 *   - externamente via USART1, atendida pela thread em src/uart_cli.c.
+	 */
+	LOG_INF("Sistema pronto. Shell disponivel na console e via ponte ESP (USART1).");
 	return 0;
 }
