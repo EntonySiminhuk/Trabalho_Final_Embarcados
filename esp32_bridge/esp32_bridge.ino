@@ -45,7 +45,7 @@ static const uint16_t UDP_PORT = 5000;
 /* ---- UART2 para o STM32 ---- */
 static const int  STM_RX_PIN = 16;      /* ESP recebe (liga no TX do STM = PB6) */
 static const int  STM_TX_PIN = 17;      /* ESP transmite (liga no RX do STM = PB7) */
-static const long STM_BAUD   = 9600;   /* casar com a USART1 do STM (overlay) */
+static const long STM_BAUD   = 115200;  /* casar com a USART1 do STM (overlay) */
 
 static const unsigned long RESP_IDLE_MS = 300;
 static const unsigned long RESP_MAX_MS  = 2000;
@@ -176,14 +176,9 @@ void loop() {
     resp = "(sem resposta do STM)\n";
   }
 
-  int okBegin = udp.beginPacket(remoteIp, remotePort);
+  udp.beginPacket(remoteIp, remotePort);
   udp.write((const uint8_t *)resp.c_str(), resp.length());
-  int okEnd = udp.endPacket();
+  udp.endPacket();
 
-  Serial.printf("cmd \"%s\" -> %u bytes p/ %s:%u (beginPacket=%d endPacket=%d)\n",
-                cmd, (unsigned)resp.length(),
-                remoteIp.toString().c_str(), remotePort, okBegin, okEnd);
-  Serial.print("   RESP=[");
-  Serial.print(resp);
-  Serial.println("]");
+  Serial.printf("cmd \"%s\" -> %u bytes\n", cmd, (unsigned)resp.length());
 }

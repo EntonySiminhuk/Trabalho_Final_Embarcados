@@ -19,6 +19,8 @@
 
 #include <arm_math.h>
 #include <arm_const_structs.h>
+#include <math.h>
+#include <string.h>
 
 LOG_MODULE_DECLARE(zbus, CONFIG_ZBUS_LOG_LEVEL);
 
@@ -57,17 +59,24 @@ void anomaly_reset(void)
 /* --------------------------------------------------------------------- */
 /* Observadores do canal                                                 */
 /* --------------------------------------------------------------------- */
+/* Log periodico do monitor (heartbeat do Hard RT). Ligavel via "log_fft on|off". */
+static bool log_fft_enabled = true;
 static int cnt_listener;
+
 static void listener_callback_example(const struct zbus_channel *chan)
 {
 	const struct fft_msg *fft = zbus_chan_const_msg(chan);
 
+	if (!log_fft_enabled) {
+		return;
+	}
+
 	if (++cnt_listener > 10) {
 		cnt_listener = 0;
-		LOG_INF("FFT: cc=%.2f 1st=%.2f 2nd=%.2f 3rd=%.2f 4th=%.2f",
-			(double)fft->harmonic_cc, (double)fft->harmonic_1st,
-			(double)fft->harmonic_2nd, (double)fft->harmonic_3rd,
-			(double)fft->harmonic_4th);
+		LOG_INF("monitor: 1a=%.2f 2a=%.2f 3a=%.2f 4a=%.2f (limite %.0f)",
+			(double)fft->harmonic_1st, (double)fft->harmonic_2nd,
+			(double)fft->harmonic_3rd, (double)fft->harmonic_4th,
+			(double)LIMITE_CRITICO);
 	}
 }
 ZBUS_LISTENER_DEFINE(callback_listener, listener_callback_example);
@@ -128,10 +137,22 @@ static void fft_task(void)
 	struct fft_msg fft;
 	const struct device *const dev = DEVICE_DT_GET(DT_NODELABEL(mpu6050));
 
+	/*
+	 * No cold-boot o MPU6050 as vezes nao responde ao I2C a tempo (power-up),
+	 * e o init do driver falha ("Failed to read chip ID"). Em vez de desistir,
+	 * tentamos reinicializar algumas vezes ate o sensor estabilizar.
+	 */
+	for (int i = 0; !device_is_ready(dev) && i < 20; i++) {
+		LOG_WRN("MPU6050 nao pronto; reinicializando (%d/20)...", i + 1);
+		k_msleep(200);
+		(void)device_init(dev);
+	}
+
 	if (!device_is_ready(dev)) {
-		LOG_ERR("Sensor MPU6050 nao esta pronto!");
+		LOG_ERR("Sensor MPU6050 falhou definitivamente!");
 		return;
 	}
+	LOG_INF("MPU6050 pronto");
 
 	while (1) {
 		/* 1. Coleta a janela do eixo X, acumulando a media (offset DC). */
@@ -195,18 +216,27 @@ static int cmd_show_raw(const struct shell *shell, size_t argc, char **argv)
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	sensor_sample_fetch(dev);
+	if (sensor_sample_fetch(dev) != 0) {
+		shell_error(shell, "Falha ao ler o MPU6050 (I2C).");
+		return -EIO;
+	}
 	sensor_channel_get(dev, SENSOR_CHAN_ACCEL_X, &accel[0]);
 	sensor_channel_get(dev, SENSOR_CHAN_ACCEL_Y, &accel[1]);
 	sensor_channel_get(dev, SENSOR_CHAN_ACCEL_Z, &accel[2]);
 
-	shell_print(shell, "RAW: X=%f Y=%f Z=%f",
-		    sensor_value_to_double(&accel[0]),
-		    sensor_value_to_double(&accel[1]),
-		    sensor_value_to_double(&accel[2]));
+	double x = sensor_value_to_double(&accel[0]);
+	double y = sensor_value_to_double(&accel[1]);
+	double z = sensor_value_to_double(&accel[2]);
+	double mag = sqrt(x * x + y * y + z * z);
+
+	shell_print(shell, "--- Aceleracao instantanea (MPU6050) ---");
+	shell_print(shell, "  X   = %8.3f m/s2", x);
+	shell_print(shell, "  Y   = %8.3f m/s2", y);
+	shell_print(shell, "  Z   = %8.3f m/s2", z);
+	shell_print(shell, "  |a| = %8.3f m/s2  (modulo do vetor)", mag);
 	return 0;
 }
-SHELL_CMD_REGISTER(show_raw, NULL, "Mostra valores brutos do sensor", cmd_show_raw);
+SHELL_CMD_REGISTER(show_raw, NULL, "Aceleracao X/Y/Z + modulo (m/s2)", cmd_show_raw);
 
 static int cmd_show_fft(const struct shell *shell, size_t argc, char **argv)
 {
@@ -215,18 +245,24 @@ static int cmd_show_fft(const struct shell *shell, size_t argc, char **argv)
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	if (zbus_chan_read(&fft_data_chan, &fft, K_MSEC(100)) == 0) {
-		shell_print(shell, "--- Ultimos Dados de FFT ---");
-		shell_print(shell, "CC: %f | 1st: %f | 2nd: %f | 3rd: %f | 4th: %f",
-			    (double)fft.harmonic_cc, (double)fft.harmonic_1st,
-			    (double)fft.harmonic_2nd, (double)fft.harmonic_3rd,
-			    (double)fft.harmonic_4th);
-	} else {
+	if (zbus_chan_read(&fft_data_chan, &fft, K_MSEC(100)) != 0) {
 		shell_error(shell, "Erro ao ler o canal Zbus!");
+		return -EIO;
 	}
+
+	shell_print(shell, "--- Espectro de vibracao (FFT, eixo X) ---");
+	shell_print(shell, "  Componente | Magnitude");
+	shell_print(shell, "  DC         | %8.3f", (double)fft.harmonic_cc);
+	shell_print(shell, "  1a harm.   | %8.3f", (double)fft.harmonic_1st);
+	shell_print(shell, "  2a harm.   | %8.3f", (double)fft.harmonic_2nd);
+	shell_print(shell, "  3a harm.   | %8.3f", (double)fft.harmonic_3rd);
+	shell_print(shell, "  4a harm.   | %8.3f", (double)fft.harmonic_4th);
+	shell_print(shell, "  Limite de anomalia (1a harm.): %.1f  ->  %s",
+		    (double)LIMITE_CRITICO,
+		    fft.harmonic_1st > LIMITE_CRITICO ? "ANOMALIA!" : "ok");
 	return 0;
 }
-SHELL_CMD_REGISTER(show_fft, NULL, "Mostra os dados atuais do FFT", cmd_show_fft);
+SHELL_CMD_REGISTER(show_fft, NULL, "Espectro de vibracao (harmonicas da FFT)", cmd_show_fft);
 
 static int cmd_show_anomalies(const struct shell *shell, size_t argc, char **argv)
 {
@@ -239,6 +275,43 @@ static int cmd_show_anomalies(const struct shell *shell, size_t argc, char **arg
 }
 SHELL_CMD_REGISTER(show_anomalies, NULL, "Mostra o total de anomalias detectadas",
 		   cmd_show_anomalies);
+
+static int cmd_rt_status(const struct shell *shell, size_t argc, char **argv)
+{
+	struct fft_msg fft;
+
+	ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+	shell_print(shell, "=== Tarefas de Tempo Real ===");
+	shell_print(shell, "Hard RT: fft_task (prio 3) - amostra MPU6050 ~1kHz, FFT %d pts",
+		    FFT_SIZE);
+	shell_print(shell, "Soft RT: send_result_task (prio 3) - alerta/anomalias");
+	shell_print(shell, "Limite critico (1a harmonica): %.1f", (double)LIMITE_CRITICO);
+	shell_print(shell, "Anomalias acumuladas: %ld", (long)atomic_get(&anomaly_count));
+
+	if (zbus_chan_read(&fft_data_chan, &fft, K_MSEC(100)) == 0) {
+		shell_print(shell, "Ultima 1a harmonica: %.3f", (double)fft.harmonic_1st);
+	}
+	return 0;
+}
+SHELL_CMD_REGISTER(rt_status, NULL, "Info das tarefas de tempo real", cmd_rt_status);
+
+static int cmd_log_fft(const struct shell *shell, size_t argc, char **argv)
+{
+	if (argc == 2 && strcmp(argv[1], "on") == 0) {
+		log_fft_enabled = true;
+		shell_print(shell, "Log periodico do monitor: LIGADO");
+	} else if (argc == 2 && strcmp(argv[1], "off") == 0) {
+		log_fft_enabled = false;
+		shell_print(shell, "Log periodico do monitor: DESLIGADO");
+	} else {
+		shell_print(shell, "Uso: log_fft on|off   (atual: %s)",
+			    log_fft_enabled ? "on" : "off");
+	}
+	return 0;
+}
+SHELL_CMD_REGISTER(log_fft, NULL, "Liga/desliga o log periodico do monitor", cmd_log_fft);
 
 static int cmd_reset_anomalies(const struct shell *shell, size_t argc, char **argv)
 {
