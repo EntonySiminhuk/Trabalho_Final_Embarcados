@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      NU1903: Microsoft.OpenApi 2.2.0 vem transitivamente do Microsoft.AspNetCore.OpenApi
+      10.0.9 (gerador de doc OpenAPI, uso só em dev). A correção está na linha 3.x, que
+      ainda é incompatível com o source generator do ASP.NET Core 10. Silenciado até o
+      framework atualizar a dependência.
+    -->
+    <NoWarn>$(NoWarn);NU1903</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.10" />
+  </ItemGroup>
+
+</Project>

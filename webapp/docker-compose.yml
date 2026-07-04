@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vibra_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vibra
+      POSTGRES_PASSWORD: vibra123
+      POSTGRES_DB: vibramonitor
+    ports:
+      # Host 5544 -> container 5432. Usamos 5544 para não conflitar com um
+      # PostgreSQL nativo que já ocupa a 5432 nesta máquina.
+      - "5544:5432"
+    volumes:
+      - vibra_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vibra -d vibramonitor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Interface web opcional para inspecionar o banco (http://localhost:8081)
+  # Login: admin@vibra.local / admin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: vibra_pgadmin
+    restart: unless-stopped
+    profiles: ["tools"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@vibra.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "8081:80"
+    depends_on:
+      - postgres
+
+volumes:
+  vibra_pgdata:

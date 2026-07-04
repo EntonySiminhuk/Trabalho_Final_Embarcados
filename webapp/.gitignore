@@ -1,0 +1,11 @@
+# .NET
+bin/
+obj/
+
+# Node
+node_modules/
+dist/
+*.local
+
+# Env local (mantenha .env de exemplo versionado se quiser)
+.env.local

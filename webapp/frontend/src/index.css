@@ -1,0 +1,24 @@
+:root {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #020617;
+  color: #e2e8f0;
+  min-height: 100vh;
+  background-image: radial-gradient(
+    1000px 600px at 80% -10%,
+    #0ea5e915,
+    transparent
+  );
+}
+
+h1, h2, h3 {
+  font-weight: 600;
+}
