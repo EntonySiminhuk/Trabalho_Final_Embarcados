@@ -6,7 +6,7 @@
 # Digite comandos (show_fft, show_raw, show_anomalies). "exit" para sair.
 
 param(
-    [string]$Ip = "192.168.137.184",
+    [string]$Ip = "192.168.1.17",
     [int]$Port = 5000
 )
 

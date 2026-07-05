@@ -22,22 +22,16 @@
 #include <math.h>
 #include <string.h>
 
+#include "vibration.h"
+
 LOG_MODULE_DECLARE(zbus, CONFIG_ZBUS_LOG_LEVEL);
 
 #define FFT_SIZE       256
 #define LIMITE_CRITICO 100.0f
 
 /* --------------------------------------------------------------------- */
-/* Mensagem e canal Zbus                                                 */
+/* Canal Zbus (a struct fft_msg vive em vibration.h, compartilhada)      */
 /* --------------------------------------------------------------------- */
-struct fft_msg {
-	float harmonic_cc;
-	float harmonic_1st;
-	float harmonic_2nd;
-	float harmonic_3rd;
-	float harmonic_4th;
-};
-
 ZBUS_CHAN_DEFINE(fft_data_chan,
 		 struct fft_msg,
 		 NULL,

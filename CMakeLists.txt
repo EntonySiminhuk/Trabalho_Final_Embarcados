@@ -9,4 +9,4 @@ set(BOARD nucleo_g474re)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(se28cp_app)
 
-target_sources(app PRIVATE src/zbus.c src/keyboard.c src/uart_cli.c src/main.c)
+target_sources(app PRIVATE src/zbus.c src/keyboard.c src/uart_cli.c src/telemetry.c src/main.c)

@@ -25,6 +25,8 @@
 
 #include <string.h>
 
+#include "bridge_uart.h"
+
 LOG_MODULE_REGISTER(uart_cli, LOG_LEVEL_INF);
 
 /* UART fisica da ponte (definida no overlay: usart1 em PC4/PC5). */
@@ -37,6 +39,9 @@ static const struct device *const cli_uart = DEVICE_DT_GET(CLI_UART_NODE);
 #define UART_CLI_PRIO    6
 
 RING_BUF_DECLARE(rx_rb, RING_BUF_SZ);
+
+/* Serializa a TX da USART1 entre o CLI (respostas) e a telemetria periodica. */
+K_MUTEX_DEFINE(tx_mutex);
 
 /* ISR: esvazia o FIFO de RX e joga os bytes no ring buffer. */
 static void uart_isr(const struct device *dev, void *user_data)
@@ -56,11 +61,14 @@ static void uart_isr(const struct device *dev, void *user_data)
 	}
 }
 
-static void uart_write_str(const char *s, size_t len)
+/* Escrita atomica na USART1 (thread-safe): ver bridge_uart.h. */
+void bridge_uart_write(const char *s, size_t len)
 {
+	k_mutex_lock(&tx_mutex, K_FOREVER);
 	for (size_t i = 0; i < len; i++) {
 		uart_poll_out(cli_uart, (unsigned char)s[i]);
 	}
+	k_mutex_unlock(&tx_mutex);
 }
 
 static void uart_cli_thread(void)
@@ -119,11 +127,11 @@ static void uart_cli_thread(void)
 			const char *out = shell_backend_dummy_get_output(dummy, &out_len);
 
 			if (out != NULL && out_len > 0) {
-				uart_write_str(out, out_len);
+				bridge_uart_write(out, out_len);
 			} else {
 				static const char empty[] = "(sem saida)\n";
 
-				uart_write_str(empty, strlen(empty));
+				bridge_uart_write(empty, strlen(empty));
 			}
 		}
 
