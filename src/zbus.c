@@ -41,7 +41,6 @@ ZBUS_CHAN_DEFINE(fft_data_chan,
 			       .harmonic_2nd = 0.0f, .harmonic_3rd = 0.0f,
 			       .harmonic_4th = 0.0f));
 
-/* Historico de anomalias (Soft RT). Exportado para o botao poder resetar. */
 atomic_t anomaly_count = ATOMIC_INIT(0);
 
 void anomaly_reset(void)

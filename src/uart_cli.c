@@ -10,7 +10,9 @@
  *
  * A RX e feita por INTERRUPCAO + ring buffer. O registrador RX do STM32 guarda
  * so 1 byte, entao ler por polling com sleep perde bytes; a ISR esvazia o FIFO
- * a cada byte e enfileira, e a thread consome sem pressa.
+ * a cada byte e enfileira. Quando enfileira, sinaliza um semaforo; a thread
+ * fica BLOQUEADA nele (k_sem_take K_FOREVER) e so acorda quando ha dado -
+ * sem espera ativa / polling.
  *
  * Requer: CONFIG_SHELL_BACKEND_DUMMY=y e CONFIG_UART_INTERRUPT_DRIVEN=y
  */
@@ -43,6 +45,13 @@ RING_BUF_DECLARE(rx_rb, RING_BUF_SZ);
 /* Serializa a TX da USART1 entre o CLI (respostas) e a telemetria periodica. */
 K_MUTEX_DEFINE(tx_mutex);
 
+/*
+ * Sinaliza "ha bytes novos no ring buffer" da ISR para a thread. Binario
+ * (max 1): a thread esvazia todo o ring buffer a cada acorda, entao basta um
+ * unico aviso. Substitui o antigo polling com k_msleep().
+ */
+K_SEM_DEFINE(rx_sem, 0, 1);
+
 /* ISR: esvazia o FIFO de RX e joga os bytes no ring buffer. */
 static void uart_isr(const struct device *dev, void *user_data)
 {
@@ -58,6 +67,7 @@ static void uart_isr(const struct device *dev, void *user_data)
 			break;
 		}
 		ring_buf_put(&rx_rb, buf, n);
+		k_sem_give(&rx_sem); /* acorda a thread (ISR-safe) */
 	}
 }
 
@@ -95,8 +105,8 @@ static void uart_cli_thread(void)
 		uint8_t c;
 
 		if (ring_buf_get(&rx_rb, &c, 1) == 0) {
-			/* Nada no buffer: dormir e curto e seguro (a ISR guarda os bytes). */
-			k_msleep(5);
+			/* Buffer vazio: bloqueia ate a ISR sinalizar (sem polling). */
+			k_sem_take(&rx_sem, K_FOREVER);
 			continue;
 		}
 
