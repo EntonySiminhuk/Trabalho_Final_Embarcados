@@ -76,7 +76,12 @@ ZBUS_LISTENER_DEFINE(callback_listener, listener_callback_example);
 
 ZBUS_SUBSCRIBER_DEFINE(task_sub, 4);
 
-/* Tarefa Soft RT: reage aos dados e mantem o historico de anomalias. */
+/*
+ * Tarefa Soft RT: reage aos dados e mantem o historico de anomalias.
+ * Prioridade 4 = ABAIXO da fft_task (Hard RT, prio 3), deixando a hierarquia
+ * hard > soft explicita. Ela bloqueia em zbus_sub_wait, entao mesmo com prio
+ * menor nao perde publicacoes (a fila do subscriber tem profundidade 4).
+ */
 static void send_result_task(void)
 {
 	const struct zbus_channel *chan;
@@ -97,7 +102,7 @@ static void send_result_task(void)
 	}
 }
 K_THREAD_DEFINE(send_result_task_id, CONFIG_MAIN_STACK_SIZE,
-		send_result_task, NULL, NULL, NULL, 3, 0, 0);
+		send_result_task, NULL, NULL, NULL, 4, 0, 0);
 
 /* --------------------------------------------------------------------- */
 /* Filtro IIR (biquad, CMSIS-DSP) aplicado antes da FFT                  */
@@ -279,7 +284,7 @@ static int cmd_rt_status(const struct shell *shell, size_t argc, char **argv)
 	shell_print(shell, "=== Tarefas de Tempo Real ===");
 	shell_print(shell, "Hard RT: fft_task (prio 3) - amostra MPU6050 ~1kHz, FFT %d pts",
 		    FFT_SIZE);
-	shell_print(shell, "Soft RT: send_result_task (prio 3) - alerta/anomalias");
+	shell_print(shell, "Soft RT: send_result_task (prio 4) - alerta/anomalias");
 	shell_print(shell, "Limite critico (1a harmonica): %.1f", (double)LIMITE_CRITICO);
 	shell_print(shell, "Anomalias acumuladas: %ld", (long)atomic_get(&anomaly_count));
 
